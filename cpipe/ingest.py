@@ -15,12 +15,15 @@ def ingest(L: Layout, sheet_cols: int = 4, sheet_rows: int = 3) -> dict:
     con = connect(L.db)
     known = {r["id"] for r in con.execute("SELECT id FROM clips")}
     new_ids, skipped, failed = [], 0, []
-    for p in sorted(L.raw.rglob("*")):
-        if not p.is_file() or p.name.startswith("."):
-            continue
+    files = [p for p in sorted(L.raw.rglob("*")) if p.is_file() and not p.name.startswith(".")]
+    # A HEIC with a same-name JPEG next to it (e.g. from Finder > Convert Image) is superseded.
+    jpeg_stems = {(p.parent, p.stem) for p in files if p.suffix.lower() in (".jpg", ".jpeg")}
+    for p in files:
         k = media.kind_of(p)
         if not k:
             skipped += 1
+            continue
+        if p.suffix.lower() == ".heic" and (p.parent, p.stem) in jpeg_stems:
             continue
         cid = media.clip_id(p)
         rel = str(p.relative_to(L.root))
@@ -30,7 +33,9 @@ def ingest(L: Layout, sheet_cols: int = 4, sheet_rows: int = 3) -> dict:
         try:
             info = media.probe(p) if k == "video" else media.probe_photo(p)
         except Exception as e:  # unreadable file: record and move on
-            failed.append((rel, str(e)[:200]))
+            msg = "HEIC not decodable here; convert to JPEG (Finder > Quick Actions > Convert Image)" \
+                if p.suffix.lower() == ".heic" else str(e)[:200]
+            failed.append((rel, msg))
             continue
         if not info["taken_at"]:
             info["taken_at"] = datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")
