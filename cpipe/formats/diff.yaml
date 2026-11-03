@@ -1,0 +1,10 @@
+# "diff" refactor format: alternating before/after of small units, commit-message captions.
+# Needs theme beats: before, after (pair_with: before recommended), detail.
+id: diff
+slots:
+  - {beat: before, dur: 1.8, text: hook}
+  - {beat: after, dur: 2.0, text: beat}
+  - {beat: before, dur: 1.2}
+  - {beat: after, dur: 1.8}
+  - {beat: detail, dur: 1.4, count: 2}
+  - {beat: after, dur: 2.2, text: end}

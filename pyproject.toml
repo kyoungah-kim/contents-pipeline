@@ -1,0 +1,24 @@
+[project]
+name = "cpipe"
+version = "0.1.0"
+description = "Raw-to-reels agent functions: catalog media atoms, compose many reels from themes, render with ffmpeg."
+requires-python = ">=3.10"
+dependencies = ["pyyaml>=6", "pillow>=10"]
+
+[project.optional-dependencies]
+heic = ["pillow-heif>=0.16"]
+embed = ["open_clip_torch>=2.24", "torch>=2.2", "numpy>=1.26"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+cpipe = "cpipe.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["cpipe*"]
+
+[tool.setuptools.package-data]
+cpipe = ["formats/*.yaml"]

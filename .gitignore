@@ -1,0 +1,25 @@
+# This repo holds agent functions only. Content (raw media, catalogs,
+# themes, reels) lives in a separate local data root and must never be committed.
+*.mov
+*.MOV
+*.mp4
+*.MP4
+*.m4v
+*.heic
+*.HEIC
+*.jpg
+*.JPG
+*.jpeg
+*.png
+*.db
+*.db-*
+data/
+raw/
+catalog/
+reels/
+themes/
+
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/

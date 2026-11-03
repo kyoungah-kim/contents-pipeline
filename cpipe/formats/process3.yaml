@@ -1,0 +1,8 @@
+# Three-step process. Needs theme beats: before, step1, step2, step3, after.
+id: process3
+slots:
+  - {beat: before, dur: 1.6, text: hook}
+  - {beat: step1, dur: 2.2, text: beat}
+  - {beat: step2, dur: 2.2, text: beat}
+  - {beat: step3, dur: 2.2, text: beat}
+  - {beat: after, dur: 3.0, text: end}
