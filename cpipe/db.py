@@ -1,6 +1,7 @@
 """SQLite catalog. Clips are theme-agnostic atoms; reels reference clips many-to-many."""
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -49,5 +50,9 @@ def connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
+    # Default journal mode deletes a -journal file on every commit, which fails on
+    # mounted folders where deletes are not permitted. Keep the journal in memory
+    # (override with CPIPE_JOURNAL=DELETE|WAL on a normal disk).
+    con.execute(f"PRAGMA journal_mode={os.environ.get('CPIPE_JOURNAL', 'MEMORY')}")
     con.executescript(SCHEMA)
     return con
