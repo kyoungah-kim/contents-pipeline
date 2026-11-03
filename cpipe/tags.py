@@ -7,7 +7,9 @@ Import format (JSON):
 {
   "<clip_id>": {
     "space":   ["living", "playroom-corner"],
-    "state":   ["before"],                    # before | process | after | detail
+    "zone":    ["arched-wardrobe"],            # the subject this shot documents
+    "angle":   ["arched-wardrobe-front"],      # repeatable camera position for that subject
+    "state":   ["mid-sort"],                   # optional free label; stages come from time order
     "content": ["wood-tone", "fabric", "toy-bins", "color-accent"],
     "action":  ["assembling"],
     "shot":    ["wide", "fixed-angle"],       # wide | medium | closeup | overhead | timelapse

@@ -17,6 +17,7 @@ class Unit:
     label: str
     tags: dict[str, set[str]] = field(default_factory=dict)
     score: float = 0.0
+    taken_at: str = ""
 
     @property
     def key(self) -> tuple:
@@ -66,7 +67,8 @@ def candidates(con: sqlite3.Connection, want: dict, prefer: dict | None = None, 
         ms = moments.get(c["id"])
         if ms:
             for m in ms:
-                out.append(Unit(c["id"], c["path"], c["kind"], m["start"], m["end"], m["label"], t, s + 0.3))
+                out.append(Unit(c["id"], c["path"], c["kind"], m["start"], m["end"], m["label"], t, s + 0.3,
+                                c["taken_at"] or ""))
         else:
-            out.append(Unit(c["id"], c["path"], c["kind"], 0.0, c["duration"], "", t, s))
+            out.append(Unit(c["id"], c["path"], c["kind"], 0.0, c["duration"], "", t, s, c["taken_at"] or ""))
     return sorted(out, key=lambda u: -u.score)

@@ -52,6 +52,44 @@ def _pair_bonus(u: Unit, anchor: Unit | None) -> float:
     return b
 
 
+def group_key(u: Unit, by: list[str]) -> tuple:
+    return tuple(",".join(sorted(u.tags.get(f, set()))) for f in by)
+
+
+def series_pick(pool: list[Unit], series: dict, rng: random.Random, group: tuple | None = None
+                ) -> tuple[tuple | None, list[Unit]]:
+    """Order one subject's shots in time and pick from that timeline.
+
+    A subject is a group of units sharing the `group_by` facets (e.g. zone + angle).
+    Stage is not a tag: it is the unit's position in its group's timeline, so a
+    space can go through any number of intermediate states.
+    pick: first | last | spread (n evenly spaced, first and last included) | all
+    """
+    by = series.get("group_by", ["zone", "angle"])
+    groups: dict[tuple, list[Unit]] = {}
+    for u in pool:
+        k = group_key(u, by)
+        if all(k):  # every grouping facet must be present
+            groups.setdefault(k, []).append(u)
+    if not groups:
+        return None, []
+    if group is None or group not in groups:
+        need = int(series.get("min", 2 if series.get("pick") != "first" else 1))
+        ok = {k: v for k, v in groups.items() if len({x.clip_id for x in v}) >= need} or groups
+        group = max(ok, key=lambda k: len(ok[k]) + sum(u.score for u in ok[k]) / len(ok[k]) + rng.random())
+    tl = sorted(groups[group], key=lambda u: (u.taken_at, u.start))
+    pick, n = series.get("pick", "all"), int(series.get("n", 4))
+    if pick == "first":
+        sel = tl[:1]
+    elif pick == "last":
+        sel = tl[-1:]
+    elif pick == "spread" and len(tl) > n:
+        sel = [tl[round(i * (len(tl) - 1) / (n - 1))] for i in range(n)] if n > 1 else tl[-1:]
+    else:
+        sel = tl
+    return group, sel
+
+
 def compose(L: Layout, theme_id: str, format_id: str, seed: int = 0, cooldown_days: int = 21,
             jitter: float = 0.8) -> dict:
     con = connect(L.db)
@@ -61,6 +99,8 @@ def compose(L: Layout, theme_id: str, format_id: str, seed: int = 0, cooldown_da
     counts, recent = _recent_use(con, cooldown_days)
     cache: dict[str, list[Unit]] = {}
     chosen: dict[str, Unit] = {}
+    queues: dict[str, list[Unit]] = {}
+    groups: dict[str, tuple] = {}
     used: set = set()
     segments, missing = [], []
 
@@ -78,6 +118,18 @@ def compose(L: Layout, theme_id: str, format_id: str, seed: int = 0, cooldown_da
             if not pool:
                 missing.append(beat_name)
                 continue
+            if beat.get("series") and beat_name not in queues:
+                g, sel = series_pick(pool, beat["series"], rng, groups.get(beat.get("same_group_as", "")))
+                queues[beat_name] = list(sel)
+                if g is not None:
+                    groups[beat_name] = g
+            q = queues.get(beat_name)
+            if q:
+                u = q.pop(0)
+                used.add(u.key)
+                chosen.setdefault(beat_name, u)
+                segments.append(_segment(i, k, slot, beat_name, beat, theme, u))
+                continue
             anchor = chosen.get(beat.get("pair_with", ""))
             scored = []
             for u in pool:
@@ -93,12 +145,7 @@ def compose(L: Layout, theme_id: str, format_id: str, seed: int = 0, cooldown_da
             u = max(scored, key=lambda x: x[0])[1]
             used.add(u.key)
             chosen.setdefault(beat_name, u)
-            dur = float(slot.get("dur", 2.0))
-            text = slot.get("text")
-            text = theme.get("hook") if text == "hook" else theme.get("end_text") if text == "end" \
-                else beat.get("text") if text == "beat" else text
-            segments.append({"slot": f"{i}.{k}", "beat": beat_name, "clip_id": u.clip_id, "path": u.path,
-                             "kind": u.kind, "start": u.start, "dur": dur, "label": u.label, "text": text})
+            segments.append(_segment(i, k, slot, beat_name, beat, theme, u))
 
     reel_id = f"{theme_id}--{format_id}--s{seed}"
     spec = {"id": reel_id, "theme": theme_id, "format": format_id, "seed": seed,
@@ -112,6 +159,19 @@ def compose(L: Layout, theme_id: str, format_id: str, seed: int = 0, cooldown_da
                 (reel_id, theme_id, format_id, seed, str((d / "spec.json").relative_to(L.root))))
     con.commit()
     return spec
+
+
+def _segment(i: int, k: int, slot: dict, beat_name: str, beat: dict, theme: dict, u: Unit) -> dict:
+    text = slot.get("text")
+    if text == "hook":
+        text = theme.get("hook") if k == 0 else None
+    elif text == "end":
+        text = theme.get("end_text")
+    elif text == "beat":
+        text = beat.get("text")
+    return {"slot": f"{i}.{k}", "beat": beat_name, "clip_id": u.clip_id, "path": u.path, "kind": u.kind,
+            "start": u.start, "dur": float(slot.get("dur", 2.0)), "label": u.label, "text": text,
+            "taken_at": u.taken_at}
 
 
 def set_status(L: Layout, reel_id: str, status: str) -> None:

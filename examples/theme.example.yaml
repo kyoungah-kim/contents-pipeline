@@ -1,5 +1,9 @@
 # Copy to <data root>/themes/<id>.yaml. A theme is a lens over the catalog:
 # it says which on-screen facts each beat needs, never which clips to use.
+#
+# Stages are not tagged. Tag each shot with the subject it shows (zone) and the
+# camera position (angle); a subject's stages are its shots ordered by capture time.
+# `series` picks from that timeline: first | last | spread (n evenly spaced) | all.
 id: example-entryway
 title: Small entryway refresh
 hook: "Entryway in one afternoon"
@@ -7,15 +11,22 @@ end_text: "Save for your next weekend"
 caption: "Three changes, no tools. What would you add?"
 avoid: {content: [clutter-closeup]}
 beats:
-  before:
-    want: {state: [before], space: [entry]}
-    prefer: {shot: [wide, fixed-angle]}
-  after:
-    want: {state: [after], space: [entry]}
-    prefer: {shot: [wide, fixed-angle]}
-    pair_with: before      # prefer the same angle as the chosen before shot
+  before:                       # earliest shot of one subject
+    want: {space: [entry]}
+    series: {group_by: [zone, angle], pick: first, min: 2}
+  after:                        # latest shot of the same subject
+    want: {space: [entry]}
+    series: {group_by: [zone, angle], pick: last}
+    same_group_as: before
+  timeline:                     # for the `progress` format
+    want: {space: [entry]}
+    series: {group_by: [zone, angle], pick: spread, n: 6, min: 3}
+  final:
+    want: {space: [entry]}
+    series: {group_by: [zone, angle], pick: last}
+    same_group_as: timeline
   detail:
-    want: {state: [after, detail], shot: [closeup]}
+    want: {shot: [closeup]}
   step1: {want: {action: [assembling]}, text: "1. Hooks at kid height"}
   step2: {want: {action: [styling]}, text: "2. One basket per person"}
   step3: {want: {action: [hanging-art]}, text: "3. Art at eye level"}

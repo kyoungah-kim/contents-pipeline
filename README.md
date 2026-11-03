@@ -9,9 +9,13 @@ This repo holds code only. All media, catalogs, themes and reels live in a separ
 - **Clip**: one photo or video, identified by a content hash so renames and moves don't break it.
   Clips are tagged with what is visible (space, state, content, shot, action, light, quality, privacy),
   plus optional **moments** (usable sub-ranges). Clips are never assigned to a theme.
+- **Stages come from time, not tags.** Tag each shot with its subject (`zone`) and camera position
+  (`angle`). A subject's stages are its shots ordered by capture time, so a space can pass through any
+  number of in-between states. Beats with `series` pick from that timeline (`first`, `last`,
+  `spread` n evenly spaced, `all`), and `same_group_as` keeps two beats on one subject.
 - **Theme**: a lens over the catalog, written as YAML in `<data>/themes/`. Each beat is a facet query.
   Themes can be added at any time; existing clips are re-used across themes.
-- **Format**: the shape of a reel (slot order and durations). Built-ins: `reveal`, `process3`, `diff`.
+- **Format**: the shape of a reel (slot order and durations). Built-ins: `reveal`, `progress`, `process3`, `diff`.
   Override or add formats in `<data>/formats/`.
 - **Reel** = theme × format × seed. Each seed is a different variation. Selection is many-to-many,
   with a cooldown on clips used in recently approved reels, before/after angle pairing (`pair_with`),

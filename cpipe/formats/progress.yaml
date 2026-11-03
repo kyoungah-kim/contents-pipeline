@@ -1,0 +1,6 @@
+# Progression: one subject (zone + angle) shown through its timeline, any number of stages.
+# Needs theme beat: timeline (with series: {pick: spread, n: 6}); optional: final (pick: last).
+id: progress
+slots:
+  - {beat: timeline, dur: 1.2, count: 6, text: hook}
+  - {beat: final, dur: 2.5, text: end}

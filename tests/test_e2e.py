@@ -71,3 +71,36 @@ def test_pipeline(tmp_path):
     info = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
                            "stream=width,height", "-of", "csv=p=0", str(out)], capture_output=True, text=True).stdout
     assert info.strip() == "1080,1920"
+
+
+SERIES_THEME = """
+id: s
+hook: "Hook"
+end_text: "End"
+beats:
+  timeline: {want: {space: [room]}, series: {group_by: [zone, angle], pick: spread, n: 3, min: 3}}
+  final: {want: {space: [room]}, series: {group_by: [zone, angle], pick: last}, same_group_as: timeline}
+"""
+
+
+def test_series_timeline(tmp_path):
+    L = layout(str(tmp_path)).ensure()
+    for i, c in enumerate(["red", "orange", "yellow", "green", "blue"]):
+        _video(L.raw / f"s{i}.mp4", c, 2)
+    ingest(L)
+    con = connect(L.db)
+    rows = con.execute("SELECT id, path FROM clips ORDER BY path").fetchall()
+    # five stages of one subject, capture times deliberately out of file-name order
+    times = ["2026-11-05", "2026-11-01", "2026-11-03", "2026-11-09", "2026-11-07"]
+    for (cid, _), t in zip(rows, times):
+        con.execute("UPDATE clips SET taken_at=? WHERE id=?", (t, cid))
+    con.commit()
+    tags = {cid: {"space": ["room"], "zone": ["shelf"], "angle": ["front"]} for cid, _ in rows}
+    tf = tmp_path / "t.json"; tf.write_text(json.dumps(tags)); import_tags(L, tf)
+    (L.themes / "s.yaml").write_text(SERIES_THEME)
+    spec = compose(L, "s", "progress")
+    by_time = [cid for _, cid in sorted((t, r[0]) for r, t in zip(rows, times))]
+    seg = [s["clip_id"] for s in spec["segments"]]
+    assert seg[:3] == [by_time[0], by_time[2], by_time[4]]  # spread: first, middle, last in time
+    assert seg[-1] == by_time[-1]                            # final = latest stage
+    assert spec["segments"][0]["text"] == "Hook" and spec["segments"][1]["text"] is None
