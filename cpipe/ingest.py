@@ -28,7 +28,7 @@ def ingest(L: Layout, sheet_cols: int = 4, sheet_rows: int = 3) -> dict:
             con.execute("UPDATE clips SET path=? WHERE id=?", (rel, cid))  # follow moves
             continue
         try:
-            info = media.probe(p)
+            info = media.probe(p) if k == "video" else media.probe_photo(p)
         except Exception as e:  # unreadable file: record and move on
             failed.append((rel, str(e)[:200]))
             continue

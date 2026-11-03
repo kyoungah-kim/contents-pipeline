@@ -49,6 +49,30 @@ def probe(p: Path) -> dict:
     return {"width": w, "height": h, "duration": float(dur) if dur else None, "taken_at": taken}
 
 
+def _exif_date(s: str | None) -> str | None:
+    """'2026:11:02 14:03:11' -> '2026-11-02T14:03:11'"""
+    if not s or len(s) < 19:
+        return None
+    return s[:10].replace(":", "-") + "T" + s[11:19]
+
+
+def probe_photo(p: Path) -> dict:
+    """Photo size and capture time. HEIC goes through ImageMagick (libheif); others through Pillow."""
+    if p.suffix.lower() == ".heic":
+        out = subprocess.run(["identify", "-format", "%w|%h|%[EXIF:DateTimeOriginal]|%[EXIF:Orientation]\n",
+                              str(p)], capture_output=True, text=True, check=True).stdout.splitlines()[0]
+        w, h, dt, orient = (out.split("|") + ["", "", "", ""])[:4]
+        w, h = int(w), int(h)
+        if orient.strip() in ("5", "6", "7", "8"):
+            w, h = h, w
+        return {"width": w, "height": h, "duration": None, "taken_at": _exif_date(dt)}
+    from PIL import Image, ImageOps
+    with Image.open(p) as im:
+        dt = im.getexif().get_ifd(0x8769).get(36867) or im.getexif().get(306)
+        im = ImageOps.exif_transpose(im)
+        return {"width": im.width, "height": im.height, "duration": None, "taken_at": _exif_date(dt)}
+
+
 def extract_frames(src: Path, out_dir: Path, kind: str, duration: float | None,
                    every: float = 2.0, max_frames: int = 12) -> list[tuple[float, Path]]:
     """Small JPEG keyframes (480px tall) for agent vision and contact sheets."""
@@ -62,6 +86,16 @@ def extract_frames(src: Path, out_dir: Path, kind: str, duration: float | None,
     res = []
     for t in times:
         dst = out_dir / f"{t:07.2f}.jpg"
+        if not dst.exists() and kind == "photo":
+            if src.suffix.lower() == ".heic":
+                subprocess.run(["convert", str(src), "-auto-orient", "-resize", "x480", "-quality", "82", str(dst)],
+                               capture_output=True, text=True)
+            else:
+                from PIL import Image, ImageOps
+                with Image.open(src) as im:
+                    im = ImageOps.exif_transpose(im).convert("RGB")
+                    im.thumbnail((10_000, 480))
+                    im.save(dst, quality=82)
         if not dst.exists():
             cmd = ["ffmpeg", "-v", "error", "-y"]
             if kind == "video":

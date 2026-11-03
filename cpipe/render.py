@@ -36,6 +36,10 @@ def _segment(src: Path, kind: str, start: float, dur: float, text: str | None, f
         # Top safe zone: clear of the Reels header and the caption/buttons at the bottom.
         vf.append(f"drawtext=fontfile='{font}':textfile='{tf}':fontsize=64:fontcolor=white:"
                   f"box=1:boxcolor=black@0.35:boxborderw=24:x=(w-text_w)/2:y=h*0.16")
+    if kind == "photo" and src.suffix.lower() == ".heic":  # older ffmpeg builds can't decode HEIC
+        jpg = tmp / f"{out.stem}.jpg"
+        subprocess.run(["convert", str(src), "-auto-orient", "-quality", "92", str(jpg)], check=True)
+        src = jpg
     cmd = ["ffmpeg", "-v", "error", "-y"]
     cmd += ["-loop", "1", "-t", str(dur), "-i", str(src)] if kind == "photo" else ["-ss", str(start), "-t", str(dur), "-i", str(src)]
     cmd += ["-vf", ",".join(vf), "-t", str(dur), "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
